@@ -1,20 +1,39 @@
-import threading
 import matplotlib.pyplot as plt
 import random
-import time
 
 
-COORDINATES = [(60, 200), (180, 200), (100, 180), (140, 180), (20, 160), (80, 160), (200, 160), (140, 140), (40, 120), (120, 120), (180, 100), (60, 80), (100, 80), (180, 60), (20, 40), (100, 40), (200, 40), (20, 20), (60, 20), (160, 20)]
+COORDINATES = [] #[(60, 200), (180, 200), (100, 180), (140, 180), (20, 160), (80, 160), (200, 160), (140, 140), (40, 120), (120, 120), (180, 100), (60, 80), (100, 80), (180, 60), (20, 40), (100, 40), (200, 40), (20, 20), (60, 20), (160, 20)]
+INIT_PERMUTATION = []
+INIT_PERMUTATION_VALUE = []
 PERMUTATIONS = []
 FITNESS = []
 FITNESS_LENGTH = []
+SIZE = 40
 
 fig, axes = plt.subplots(1, 2)
 
+
 # Inicializujeme pole podla velkosti suradnic
 def initPermutations():
-    for i in range(len(COORDINATES)):
-        PERMUTATIONS.append(i)
+    while len(COORDINATES) < SIZE:
+        x = random.randrange(1, 21) * 10
+        y = random.randrange(1, 21) * 10
+        coordinates = (x, y)
+        if coordinates not in COORDINATES:
+            COORDINATES.append((x,y))
+        
+        permutation = len(COORDINATES) - 1
+        if permutation not in PERMUTATIONS:
+            PERMUTATIONS.append(permutation)
+
+    state = PERMUTATIONS.copy()
+    random.shuffle(state)
+    for city in state:
+        INIT_PERMUTATION.append(city)
+    INIT_PERMUTATION_VALUE.append(calculateState(state))
+
+    x, y = permutationToXYArray(INIT_PERMUTATION)
+    plotGraph(x, y ,"First state", 3, None, INIT_PERMUTATION_VALUE[0])
 
 
 # Metoda na vykreslenie grafu
@@ -75,16 +94,16 @@ def calculateState(permutation):
 # Metoda na vygenerovanie vsetkych permutacii 
 def generateNeighborhood(solution):
     neighborhood = []
-    lenghtOfPermutation = len(solution) 
+    lenghtOfPermutation = len(solution)
 
     for j in range(lenghtOfPermutation):
         for i in range(lenghtOfPermutation):
             temp = solution.copy()
-            if i+j+2 < lenghtOfPermutation:
-                temp[i+1], temp[i+j+2] = temp[i+j+2], temp[i+1]
-                if temp not in neighborhood:
+            if i+j+1 < lenghtOfPermutation:
+                temp[i], temp[i+j+1] = temp[i+j+1], temp[i]
+                if temp not in neighborhood and temp != solution:
                     neighborhood.append(temp)
-                
+    
     for item in neighborhood:
         item.append(calculateState(item))
 
@@ -92,13 +111,6 @@ def generateNeighborhood(solution):
     neighborhood.sort(key=lambda x: x[lastItemOnTheList])
 
     return neighborhood
-
-
-# Vytvorime nahodnu permutaciu a jej hodnotenie
-def generateRandomPermutationAndValue():
-    state = PERMUTATIONS.copy()
-    random.shuffle(state)
-    return state, calculateState(state)
 
 
 # Metoda na najdenie prveho prvku ktory nie je v tabu liste
@@ -112,33 +124,6 @@ def findNeighbor(neighborhood, tabuList):
             return bestNeighbor, bestNeighborValue
 
 
-# Metoda na spustanie zakazaneho prehladavania
-def tabuSearch():
-    tabuList = []
-    state, value = generateRandomPermutationAndValue()
-    best = value
-    overallBestState = state
-    for i in range(100):
-        neighborhood = generateNeighborhood(state)
-        bestNeighbor, bestNeighborValue = findNeighbor(neighborhood, tabuList)
-
-        if bestNeighborValue >= value:
-            tabuList.append(state)
-        if best > bestNeighborValue:
-            overallBestState = bestNeighbor
-            best = bestNeighborValue
-        x, y = permutationToXYArray(bestNeighbor)
-        plotGraph(x, y ,"Tabu search", 0.05, bestNeighborValue, best)
-
-        if len(tabuList) > 100:
-            tabuList.pop(0)
-        
-        state = bestNeighbor
-        value = bestNeighborValue
-
-    x, y = permutationToXYArray(overallBestState)
-    plotGraph(x, y ,"Tabu search", 5, None, best)
-
 # Pomocou permutacie dostaneme x a y z povodneho arrayu
 def permutationToXYArray(permutation):
     x = []
@@ -150,13 +135,49 @@ def permutationToXYArray(permutation):
     return x, y
 
 
+# Metoda na spustanie zakazaneho prehladavania
+def tabuSearch():
+    tabuList = []
+    state = INIT_PERMUTATION.copy()
+    value = INIT_PERMUTATION_VALUE[0]
+    best = value
+    overallBestState = state
+
+    x, y = permutationToXYArray(state)
+    plotGraph(x, y ,"Tabu search", 0.001, best, best)
+    for i in range(100):
+        neighborhood = generateNeighborhood(state)
+        bestNeighbor, bestNeighborValue = findNeighbor(neighborhood, tabuList)
+
+        if bestNeighborValue >= value:
+            tabuList.append(state)
+        if best > bestNeighborValue:
+            overallBestState = bestNeighbor
+            best = bestNeighborValue
+
+        x, y = permutationToXYArray(bestNeighbor)
+        plotGraph(x, y ,"Tabu search", 0.001, bestNeighborValue, best)
+
+        if len(tabuList) > 10:
+            tabuList.pop(0)
+        
+        state = bestNeighbor
+        value = bestNeighborValue
+
+    x, y = permutationToXYArray(overallBestState)
+    plotGraph(x, y ,"Tabu search", 3, None, best)
+
+
 # Metoda na spustanie simulovaneho zihania
 def simulatedAnnealing():
-    state, value = generateRandomPermutationAndValue()
+    state = INIT_PERMUTATION.copy()
+    value = INIT_PERMUTATION_VALUE[0]
     bestValue = value
     overallBestState = state
-    run = True
-    while run:
+
+    x, y = permutationToXYArray(state)
+    plotGraph(x, y ,"Simulated annealing", 0.001, value, value)
+    for j in range(100):
         neighborhood = generateNeighborhood(state)
         for i, item in enumerate(neighborhood):
             bestNeighbor = item[:-1]
@@ -172,14 +193,12 @@ def simulatedAnnealing():
 
             elif chance  > randomValue:
                 x, y = permutationToXYArray(bestNeighbor)
-                plotGraph(x, y ,"Simulated annealing", 0.01, bestNeighborValue, bestValue)
+                plotGraph(x, y ,"Simulated annealing", 0.001, bestNeighborValue, bestValue)
                 state = bestNeighbor
                 break
-            else:
-                if i > len(neighborhood) - 2:
-                    run = False
+
     x, y = permutationToXYArray(overallBestState)
-    plotGraph(x, y ,"Simulated annealing", 5, None, bestValue)
+    plotGraph(x, y ,"Simulated annealing", 3, None, bestValue)
 
 
 # Hlavna metoda programu
